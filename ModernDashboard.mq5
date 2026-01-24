@@ -3,7 +3,7 @@
 //|                                  Modern Trading Dashboard         |
 //+------------------------------------------------------------------+
 #property copyright "Modern Dashboard EA"
-#property version   "1.00"
+#property version   "1.20"
 #property strict
 
 // Dashboard settings
@@ -11,6 +11,13 @@ input int DashboardX = 30;
 input int DashboardY = 30;
 input int DashboardWidth = 420;
 input int CardSpacing = 15;
+
+// Risk rule limits
+double RISK_RULE_MARGIN_MIN   = 20.0;
+double RISK_RULE_MARGIN_MAX   = 30.0;
+double RISK_RULE_MARGIN_HARD  = 70.0;
+double RISK_RULE_PER_TRADE    = 1.0;
+double RISK_RULE_TOTAL        = 3.0;
 
 // Colors
 color bgColor = clrWhite;
@@ -21,6 +28,7 @@ color accentGreen = C'93,122,62';
 color profitGreen = C'76,175,80';
 color lossRed = C'244,67,54';
 color borderColor = C'240,240,240';
+color warningOrange = C'255,152,0';
 
 string prefix = "MD_";
 
@@ -65,8 +73,9 @@ void OnTimer()
 //+------------------------------------------------------------------+
 void CreateDashboard()
 {
-    // Main background
-    CreateRoundedRect(prefix + "MainBg", DashboardX, DashboardY, DashboardWidth, 500, bgColor, 0);
+    // Main background - expanded width for grid layout
+    int totalWidth = (DashboardWidth * 2) + CardSpacing;
+    CreateRoundedRect(prefix + "MainBg", DashboardX, DashboardY, totalWidth, 560, bgColor, 0);
     
     // Greeting text
     string accountName = AccountInfoString(ACCOUNT_NAME);
@@ -81,25 +90,32 @@ void CreateDashboard()
 void UpdateDashboard()
 {
     int yPos = DashboardY + 55;
+    int totalWidth = (DashboardWidth * 2) + CardSpacing;
     
-    // Create stat cards
-    CreateStatCards(yPos);
+    // Create stat cards - full width across top
+    CreateStatCards(yPos, totalWidth);
     yPos += 115;
     
-    // Performance section
-    CreatePerformanceSection(yPos);
-    yPos += 180;
+    // LEFT COLUMN: Performance and Position sections (original layout)
+    int leftColumnX = DashboardX + 20;
+    int leftYPos = yPos;
     
-    // Position analysis
-    CreatePositionSection(yPos);
+    CreatePerformanceSection(leftYPos, leftColumnX);
+    leftYPos += 180;
+    
+    CreatePositionSection(leftYPos, leftColumnX);
+    
+    // RIGHT COLUMN: Risk Rules Monitor (new section)
+    int rightColumnX = DashboardX + DashboardWidth + CardSpacing + 20;
+    CreateRiskRulesSection(yPos, rightColumnX);
 }
 
 //+------------------------------------------------------------------+
 //| Create stat cards (top row)                                     |
 //+------------------------------------------------------------------+
-void CreateStatCards(int yPos)
+void CreateStatCards(int yPos, int totalWidth)
 {
-    int cardWidth = (DashboardWidth - 80) / 4;
+    int cardWidth = (totalWidth - 100) / 4;
     int xPos = DashboardX + 20;
     
     double balance = AccountInfoDouble(ACCOUNT_BALANCE);
@@ -154,13 +170,13 @@ void CreateStatCard(int x, int y, int width, string icon, string value, string l
 //+------------------------------------------------------------------+
 //| Create performance section                                       |
 //+------------------------------------------------------------------+
-void CreatePerformanceSection(int yPos)
+void CreatePerformanceSection(int yPos, int xPos)
 {
     // Section background
-    CreateRoundedRect(prefix + "PerfBg", DashboardX + 20, yPos, DashboardWidth - 40, 160, cardBgColor, 1);
+    CreateRoundedRect(prefix + "PerfBg", xPos, yPos, DashboardWidth - 40, 160, cardBgColor, 1);
     
     // Title
-    CreateText(prefix + "PerfTitle", "Performance Overview", DashboardX + 35, yPos + 15, textDark, 9, true);
+    CreateText(prefix + "PerfTitle", "Performance Overview", xPos + 15, yPos + 15, textDark, 9, true);
     
     // Get profit data
     datetime now = TimeCurrent();
@@ -175,15 +191,15 @@ void CreatePerformanceSection(int yPos)
     int rowY = yPos + 45;
     
     // Today
-    CreatePerformanceRow(DashboardX + 35, rowY, "Today", todayProfit);
+    CreatePerformanceRow(xPos + 15, rowY, "Today", todayProfit);
     rowY += 35;
     
     // This Week
-    CreatePerformanceRow(DashboardX + 35, rowY, "This Week", weekProfit);
+    CreatePerformanceRow(xPos + 15, rowY, "This Week", weekProfit);
     rowY += 35;
     
     // This Month
-    CreatePerformanceRow(DashboardX + 35, rowY, monthName, monthProfit);
+    CreatePerformanceRow(xPos + 15, rowY, monthName, monthProfit);
 }
 
 //+------------------------------------------------------------------+
@@ -200,7 +216,7 @@ void CreatePerformanceRow(int x, int y, string label, double value)
     color valColor = value >= 0 ? profitGreen : lossRed;
     string sign = value >= 0 ? "+" : "";
     string currency = AccountInfoString(ACCOUNT_CURRENCY);
-    CreateText(rowName + "_Val", sign + FormatMoney(value) + " " + currency, x + 230, y, valColor, 8, true);
+    CreateText(rowName + "_Val", sign + FormatMoney(value) + " " + currency, x + 210, y, valColor, 8, true);
     
     // Percentage badge
     double balance = AccountInfoDouble(ACCOUNT_BALANCE);
@@ -209,26 +225,26 @@ void CreatePerformanceRow(int x, int y, string label, double value)
         double pct = (value / balance) * 100;
         string pctStr = (pct >= 0 ? "+" : "") + DoubleToString(pct, 1) + "%";
         
-        CreateBadge(rowName + "_Badge", x + 120, y - 2, pctStr, pct >= 0);
+        CreateBadge(rowName + "_Badge", x + 100, y - 2, pctStr, pct >= 0);
     }
 }
 
 //+------------------------------------------------------------------+
 //| Create position section                                          |
 //+------------------------------------------------------------------+
-void CreatePositionSection(int yPos)
+void CreatePositionSection(int yPos, int xPos)
 {
     // Section background
-    CreateRoundedRect(prefix + "PosBg", DashboardX + 20, yPos, DashboardWidth - 40, 125, cardBgColor, 1);
+    CreateRoundedRect(prefix + "PosBg", xPos, yPos, DashboardWidth - 40, 125, cardBgColor, 1);
     
     // Title
-    CreateText(prefix + "PosTitle", "Open Positions Analysis", DashboardX + 35, yPos + 15, textDark, 9, true);
+    CreateText(prefix + "PosTitle", "Open Positions Analysis", xPos + 15, yPos + 15, textDark, 9, true);
     
     int totalPositions = PositionsTotal();
     
     if(totalPositions == 0)
     {
-        CreateText(prefix + "NoPos", "No open positions", DashboardX + 35, yPos + 50, textMuted, 8, false);
+        CreateText(prefix + "NoPos", "No open positions", xPos + 15, yPos + 50, textMuted, 8, false);
         return;
     }
     
@@ -274,21 +290,252 @@ void CreatePositionSection(int yPos)
     // Current P&L
     color plColor = currentPL >= 0 ? profitGreen : lossRed;
     string plSign = currentPL >= 0 ? "+" : "";
-    CreateText(prefix + "CurPL_Lbl", "Current P&L", DashboardX + 35, rowY, textMuted, 8, false);
+    CreateText(prefix + "CurPL_Lbl", "Current P&L", xPos + 15, rowY, textMuted, 8, false);
     CreateText(prefix + "CurPL_Val", plSign + FormatMoney(currentPL) + " " + currency, 
-               DashboardX + 230, rowY, plColor, 8, true);
+               xPos + 210, rowY, plColor, 8, true);
     rowY += 30;
     
     // Potential Win
-    CreateText(prefix + "PotWin_Lbl", "Potential Win (TP)", DashboardX + 35, rowY, textMuted, 8, false);
+    CreateText(prefix + "PotWin_Lbl", "Potential Win (TP)", xPos + 15, rowY, textMuted, 8, false);
     CreateText(prefix + "PotWin_Val", "+" + FormatMoney(potentialWin) + " " + currency, 
-               DashboardX + 230, rowY, profitGreen, 8, true);
+               xPos + 210, rowY, profitGreen, 8, true);
     rowY += 30;
     
     // Potential Loss
-    CreateText(prefix + "PotLoss_Lbl", "Potential Loss (SL)", DashboardX + 35, rowY, textMuted, 8, false);
+    CreateText(prefix + "PotLoss_Lbl", "Potential Loss (SL)", xPos + 15, rowY, textMuted, 8, false);
     CreateText(prefix + "PotLoss_Val", "-" + FormatMoney(potentialLoss) + " " + currency, 
-               DashboardX + 230, rowY, lossRed, 8, true);
+               xPos + 210, rowY, lossRed, 8, true);
+}
+
+//+------------------------------------------------------------------+
+//| Create Risk Rules Section - RIGHT COLUMN                         |
+//+------------------------------------------------------------------+
+void CreateRiskRulesSection(int yPos, int xPos)
+{
+    int sectionHeight = 365; // Matches combined height of performance + position
+    
+    // Section background
+    CreateRoundedRect(prefix + "RiskBg", xPos, yPos, DashboardWidth - 40, sectionHeight, cardBgColor, 1);
+    
+    // Title
+    CreateText(prefix + "RiskTitle", "⚠️ FundedNext Risk Rules", xPos + 15, yPos + 15, textDark, 9, true);
+    
+    // Get risk metrics
+    double marginUsage = GetMarginUsagePercent();
+    double riskPerTrade = GetRiskPerTradePercent();
+    double totalRisk = GetTotalRiskPercent();
+    
+    int rowY = yPos + 50;
+    
+    // Rule 1: Margin Usage
+    CreateRiskRuleRow(xPos + 15, rowY, "Margin Usage", marginUsage, 
+                      RISK_RULE_MARGIN_MIN, RISK_RULE_MARGIN_MAX, RISK_RULE_MARGIN_HARD, true);
+    rowY += 80;
+    
+    // Rule 2: Risk Per Trade
+    CreateRiskRuleRow(xPos + 15, rowY, "Risk Per Trade", riskPerTrade, 
+                      0, RISK_RULE_PER_TRADE, RISK_RULE_PER_TRADE, false);
+    rowY += 80;
+    
+    // Rule 3: Total Risk
+    CreateRiskRuleRow(xPos + 15, rowY, "Total Risk", totalRisk, 
+                      0, RISK_RULE_TOTAL, RISK_RULE_TOTAL, false);
+    rowY += 85;
+    
+    // Warning message at bottom
+    bool hasViolation = (marginUsage > RISK_RULE_MARGIN_HARD) || 
+                        (riskPerTrade > RISK_RULE_PER_TRADE) || 
+                        (totalRisk > RISK_RULE_TOTAL);
+    
+    bool hasCaution = !hasViolation && 
+                      ((marginUsage > RISK_RULE_MARGIN_MAX || marginUsage < RISK_RULE_MARGIN_MIN) || 
+                       (riskPerTrade > RISK_RULE_PER_TRADE * 0.7) || 
+                       (totalRisk > RISK_RULE_TOTAL * 0.7));
+    
+    if(hasViolation)
+    {
+        CreateText(prefix + "RiskWarn1", "⚠️ VIOLATION:", 
+                   xPos + 15, rowY, lossRed, 7, true);
+        CreateText(prefix + "RiskWarn2", "Account termination risk!", 
+                   xPos + 15, rowY + 15, lossRed, 7, false);
+        CreateText(prefix + "RiskWarn3", "Reduce positions now", 
+                   xPos + 15, rowY + 30, lossRed, 7, false);
+    }
+    else if(hasCaution)
+    {
+        CreateText(prefix + "RiskWarn1", "⚠️ CAUTION:", 
+                   xPos + 15, rowY, warningOrange, 7, true);
+        CreateText(prefix + "RiskWarn2", "Use FundedNext calculator", 
+                   xPos + 15, rowY + 15, warningOrange, 7, false);
+        CreateText(prefix + "RiskWarn3", "Target: 20-30% margin", 
+                   xPos + 15, rowY + 30, warningOrange, 7, false);
+    }
+    else
+    {
+        CreateText(prefix + "RiskWarn1", "✅ All rules compliant", 
+                   xPos + 15, rowY, accentGreen, 7, true);
+        ObjectDelete(0, prefix + "RiskWarn2");
+        ObjectDelete(0, prefix + "RiskWarn3");
+    }
+}
+
+//+------------------------------------------------------------------+
+//| Create risk rule row with progress bar                           |
+//+------------------------------------------------------------------+
+void CreateRiskRuleRow(int x, int y, string label, double current, double targetMin, double targetMax, double hardMax, bool hasRange)
+{
+    string rowName = prefix + "RiskRule_" + label;
+    
+    // Determine status color
+    color statusColor = accentGreen;
+    
+    if(current > hardMax)
+    {
+        statusColor = lossRed;
+    }
+    else if(hasRange && (current > targetMax || current < targetMin))
+    {
+        statusColor = warningOrange;
+    }
+    else if(!hasRange && current > targetMax * 0.7)
+    {
+        statusColor = warningOrange;
+    }
+    
+    // Label
+    CreateText(rowName + "_Lbl", label, x, y, textDark, 8, true);
+    
+    // Current value - right aligned
+    string valStr = DoubleToString(current, 2) + "%";
+    CreateText(rowName + "_Val", valStr, x + 300, y, statusColor, 9, true);
+    
+    // Target range
+    string targetStr;
+    if(hasRange)
+        targetStr = "Target: " + DoubleToString(targetMin, 0) + "-" + DoubleToString(targetMax, 0) + 
+                    "% | Max: " + DoubleToString(hardMax, 0) + "%";
+    else
+        targetStr = "Maximum: " + DoubleToString(targetMax, 1) + "%";
+    
+    CreateText(rowName + "_Target", targetStr, x, y + 18, textMuted, 7, false);
+    
+    // Progress bar
+    int barY = y + 38;
+    int barWidth = 350;
+    CreateProgressBar(rowName + "_Bar", x, barY, barWidth, current, hardMax, hasRange ? targetMax : targetMax * 0.7);
+}
+
+//+------------------------------------------------------------------+
+//| Create progress bar                                              |
+//+------------------------------------------------------------------+
+void CreateProgressBar(string name, int x, int y, int width, double value, double maxValue, double warningThreshold)
+{
+    // Background bar
+    CreateRoundedRect(name + "_Bg", x, y, width, 8, C'240,240,240', 0);
+    
+    // Calculate fill width
+    int fillWidth = (int)((value / maxValue) * width);
+    if(fillWidth > width) fillWidth = width;
+    if(fillWidth < 0) fillWidth = 0;
+    
+    // Determine fill color
+    color fillColor = accentGreen;
+    if(value >= maxValue)
+        fillColor = lossRed;
+    else if(value >= warningThreshold)
+        fillColor = warningOrange;
+    
+    // Fill bar
+    if(fillWidth > 0)
+        CreateRoundedRect(name + "_Fill", x, y, fillWidth, 8, fillColor, 0);
+}
+
+//+------------------------------------------------------------------+
+//| Calculate margin usage percentage                                |
+//+------------------------------------------------------------------+
+double GetMarginUsagePercent()
+{
+    double accountMargin = AccountInfoDouble(ACCOUNT_MARGIN);
+    double accountEquity = AccountInfoDouble(ACCOUNT_EQUITY);
+    
+    if(accountEquity <= 0) return 0;
+    
+    return (accountMargin / accountEquity) * 100;
+}
+
+//+------------------------------------------------------------------+
+//| Calculate risk per trade percentage                             |
+//+------------------------------------------------------------------+
+double GetRiskPerTradePercent()
+{
+    double accountEquity = AccountInfoDouble(ACCOUNT_EQUITY);
+    if(accountEquity <= 0) return 0;
+    
+    double maxRiskPerTrade = 0;
+    int totalPositions = PositionsTotal();
+    
+    for(int i = 0; i < totalPositions; i++)
+    {
+        ulong ticket = PositionGetTicket(i);
+        if(ticket > 0)
+        {
+            string symbol = PositionGetString(POSITION_SYMBOL);
+            double volume = PositionGetDouble(POSITION_VOLUME);
+            double openPrice = PositionGetDouble(POSITION_PRICE_OPEN);
+            double sl = PositionGetDouble(POSITION_SL);
+            
+            if(sl > 0)
+            {
+                double pointValue = SymbolInfoDouble(symbol, SYMBOL_TRADE_TICK_VALUE);
+                double tickSize = SymbolInfoDouble(symbol, SYMBOL_TRADE_TICK_SIZE);
+                double slDistance = MathAbs(openPrice - sl);
+                double riskAmount = (slDistance / tickSize) * pointValue * volume;
+                double riskPercent = (riskAmount / accountEquity) * 100;
+                
+                if(riskPercent > maxRiskPerTrade)
+                    maxRiskPerTrade = riskPercent;
+            }
+        }
+    }
+    
+    return maxRiskPerTrade;
+}
+
+//+------------------------------------------------------------------+
+//| Calculate total portfolio risk percentage                        |
+//+------------------------------------------------------------------+
+double GetTotalRiskPercent()
+{
+    double accountEquity = AccountInfoDouble(ACCOUNT_EQUITY);
+    if(accountEquity <= 0) return 0;
+    
+    double totalRisk = 0;
+    int totalPositions = PositionsTotal();
+    
+    for(int i = 0; i < totalPositions; i++)
+    {
+        ulong ticket = PositionGetTicket(i);
+        if(ticket > 0)
+        {
+            string symbol = PositionGetString(POSITION_SYMBOL);
+            double volume = PositionGetDouble(POSITION_VOLUME);
+            double openPrice = PositionGetDouble(POSITION_PRICE_OPEN);
+            double sl = PositionGetDouble(POSITION_SL);
+            
+            if(sl > 0)
+            {
+                double pointValue = SymbolInfoDouble(symbol, SYMBOL_TRADE_TICK_VALUE);
+                double tickSize = SymbolInfoDouble(symbol, SYMBOL_TRADE_TICK_SIZE);
+                double slDistance = MathAbs(openPrice - sl);
+                double riskAmount = (slDistance / tickSize) * pointValue * volume;
+                double riskPercent = (riskAmount / accountEquity) * 100;
+                
+                totalRisk += riskPercent;
+            }
+        }
+    }
+    
+    return totalRisk;
 }
 
 //+------------------------------------------------------------------+
