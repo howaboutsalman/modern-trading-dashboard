@@ -3,7 +3,7 @@
 //|                                  Modern Trading Dashboard         |
 //+------------------------------------------------------------------+
 #property copyright "Modern Dashboard EA"
-#property version   "1.20"
+#property version   "1.41"
 #property strict
 
 // Dashboard settings
@@ -29,6 +29,7 @@ color profitGreen = C'76,175,80';
 color lossRed = C'244,67,54';
 color borderColor = C'240,240,240';
 color warningOrange = C'255,152,0';
+color accentBlue = C'33,150,243';
 
 string prefix = "MD_";
 
@@ -39,7 +40,7 @@ int OnInit()
 {
     CreateDashboard();
     UpdateDashboard();
-    EventSetMillisecondTimer(200);
+    EventSetMillisecondTimer(1000); // Changed to 1 second for countdown
     return(INIT_SUCCEEDED);
 }
 
@@ -89,34 +90,67 @@ void CreateDashboard()
 //+------------------------------------------------------------------+
 void UpdateDashboard()
 {
-    int yPos = DashboardY + 55;
-    int totalWidth = (DashboardWidth * 2) + CardSpacing;
+    // Update market status in header
+    UpdateMarketStatus();
     
-    // Create stat cards - full width across top
-    CreateStatCards(yPos, totalWidth);
+    int yPos = DashboardY + 55;
+    
+    // Create stat cards - aligned with columns below
+    CreateStatCards(yPos);
     yPos += 115;
     
-    // LEFT COLUMN: Performance and Position sections (original layout)
+    // LEFT COLUMN: Performance and Position sections
     int leftColumnX = DashboardX + 20;
     int leftYPos = yPos;
     
     CreatePerformanceSection(leftYPos, leftColumnX);
     leftYPos += 180;
     
+    // Extended position section to match right column height
     CreatePositionSection(leftYPos, leftColumnX);
     
-    // RIGHT COLUMN: Risk Rules Monitor (new section)
-    int rightColumnX = DashboardX + DashboardWidth + CardSpacing + 20;
+    // RIGHT COLUMN: Risk Rules Monitor - aligned with left column
+    int rightColumnX = leftColumnX + DashboardWidth + CardSpacing - 40;
     CreateRiskRulesSection(yPos, rightColumnX);
 }
 
 //+------------------------------------------------------------------+
-//| Create stat cards (top row)                                     |
+//| Update Market Status in Header                                   |
 //+------------------------------------------------------------------+
-void CreateStatCards(int yPos, int totalWidth)
+void UpdateMarketStatus()
 {
-    int cardWidth = (totalWidth - 100) / 4;
-    int xPos = DashboardX + 20;
+    bool isMarketOpen = IsForexMarketOpen();
+    
+    // Position aligned with right column (Risk Monitor box)
+    int leftColumnX = DashboardX + 20;
+    int rightColumnX = leftColumnX + DashboardWidth + CardSpacing - 40;
+    int statusX = rightColumnX + (DashboardWidth - 40) - 145; // Align to right edge of risk box
+    int statusY = DashboardY + 20;
+    
+    // Status badge background
+    color badgeBg = isMarketOpen ? C'212,237,218' : C'248,215,218';
+    CreateRoundedRect(prefix + "StatusBg", statusX, statusY, 145, 22, badgeBg, 0);
+    
+    // Status indicator dot and text
+    string statusIcon = "●";
+    color iconColor = isMarketOpen ? profitGreen : lossRed;
+    color textColor = isMarketOpen ? C'21,87,36' : C'114,28,36';
+    
+    CreateText(prefix + "StatusIcon", statusIcon, statusX + 8, statusY + 3, iconColor, 11, false);
+    
+    string statusText = isMarketOpen ? "MARKET OPEN" : "MARKET CLOSED";
+    CreateText(prefix + "StatusText", statusText, statusX + 24, statusY + 4, textColor, 8, true);
+}
+
+//+------------------------------------------------------------------+
+//| Create stat cards (top row) - aligned with columns               |
+//+------------------------------------------------------------------+
+void CreateStatCards(int yPos)
+{
+    // Calculate card width to align with columns below
+    int leftColumnWidth = DashboardWidth - 40;
+    int cardWidth = (leftColumnWidth - 10) / 2;
+    int xStart = DashboardX + 20;
     
     double balance = AccountInfoDouble(ACCOUNT_BALANCE);
     double equity = AccountInfoDouble(ACCOUNT_EQUITY);
@@ -128,13 +162,18 @@ void CreateStatCards(int yPos, int totalWidth)
     
     string currency = AccountInfoString(ACCOUNT_CURRENCY);
     
+    // LEFT SIDE - 2 cards aligned with Performance/Position column
+    int xPos = xStart;
+    
     // Card 1: Balance
     CreateStatCard(xPos, yPos, cardWidth, "💰", FormatMoney(balance), "Account Balance", textDark);
     xPos += cardWidth + 10;
     
     // Card 2: Open Positions
     CreateStatCard(xPos, yPos, cardWidth, "📊", IntegerToString(openPositions), "Open Positions", textDark);
-    xPos += cardWidth + 10;
+    
+    // RIGHT SIDE - 2 cards aligned with Risk Monitor column
+    xPos = xStart + DashboardWidth + CardSpacing - 40;
     
     // Card 3: Equity
     CreateStatCard(xPos, yPos, cardWidth, "💵", FormatMoney(equity), "Current Equity", textDark);
@@ -230,81 +269,208 @@ void CreatePerformanceRow(int x, int y, string label, double value)
 }
 
 //+------------------------------------------------------------------+
-//| Create position section                                          |
+//| Create position section - EXTENDED HEIGHT                        |
 //+------------------------------------------------------------------+
 void CreatePositionSection(int yPos, int xPos)
 {
+    int sectionHeight = 185; // Extended to fill the gap
+    
     // Section background
-    CreateRoundedRect(prefix + "PosBg", xPos, yPos, DashboardWidth - 40, 125, cardBgColor, 1);
+    CreateRoundedRect(prefix + "PosBg", xPos, yPos, DashboardWidth - 40, sectionHeight, cardBgColor, 1);
     
     // Title
     CreateText(prefix + "PosTitle", "Open Positions Analysis", xPos + 15, yPos + 15, textDark, 9, true);
     
     int totalPositions = PositionsTotal();
     
-    if(totalPositions == 0)
-    {
-        CreateText(prefix + "NoPos", "No open positions", xPos + 15, yPos + 50, textMuted, 8, false);
-        return;
-    }
-    
-    double currentPL = 0;
-    double potentialWin = 0;
-    double potentialLoss = 0;
-    
-    // Analyze positions
-    for(int i = 0; i < totalPositions; i++)
-    {
-        ulong ticket = PositionGetTicket(i);
-        if(ticket > 0)
-        {
-            string symbol = PositionGetString(POSITION_SYMBOL);
-            double profit = PositionGetDouble(POSITION_PROFIT) + PositionGetDouble(POSITION_SWAP);
-            double volume = PositionGetDouble(POSITION_VOLUME);
-            double openPrice = PositionGetDouble(POSITION_PRICE_OPEN);
-            double sl = PositionGetDouble(POSITION_SL);
-            double tp = PositionGetDouble(POSITION_TP);
-            
-            currentPL += profit;
-            
-            double pointValue = SymbolInfoDouble(symbol, SYMBOL_TRADE_TICK_VALUE);
-            double tickSize = SymbolInfoDouble(symbol, SYMBOL_TRADE_TICK_SIZE);
-            
-            if(tp > 0)
-            {
-                double tpDistance = MathAbs(tp - openPrice);
-                potentialWin += (tpDistance / tickSize) * pointValue * volume;
-            }
-            
-            if(sl > 0)
-            {
-                double slDistance = MathAbs(openPrice - sl);
-                potentialLoss += (slDistance / tickSize) * pointValue * volume;
-            }
-        }
-    }
-    
-    int rowY = yPos + 50;
+    int rowY = yPos + 45;
     string currency = AccountInfoString(ACCOUNT_CURRENCY);
     
-    // Current P&L
-    color plColor = currentPL >= 0 ? profitGreen : lossRed;
-    string plSign = currentPL >= 0 ? "+" : "";
-    CreateText(prefix + "CurPL_Lbl", "Current P&L", xPos + 15, rowY, textMuted, 8, false);
-    CreateText(prefix + "CurPL_Val", plSign + FormatMoney(currentPL) + " " + currency, 
-               xPos + 210, rowY, plColor, 8, true);
-    rowY += 30;
+    if(totalPositions == 0)
+    {
+        CreateText(prefix + "NoPos", "No open positions", xPos + 15, rowY, textMuted, 8, false);
+        rowY += 35;
+    }
+    else
+    {
+        double currentPL = 0;
+        double potentialWin = 0;
+        double potentialLoss = 0;
+        
+        // Analyze positions
+        for(int i = 0; i < totalPositions; i++)
+        {
+            ulong ticket = PositionGetTicket(i);
+            if(ticket > 0)
+            {
+                string symbol = PositionGetString(POSITION_SYMBOL);
+                double profit = PositionGetDouble(POSITION_PROFIT) + PositionGetDouble(POSITION_SWAP);
+                double volume = PositionGetDouble(POSITION_VOLUME);
+                double openPrice = PositionGetDouble(POSITION_PRICE_OPEN);
+                double sl = PositionGetDouble(POSITION_SL);
+                double tp = PositionGetDouble(POSITION_TP);
+                
+                currentPL += profit;
+                
+                double pointValue = SymbolInfoDouble(symbol, SYMBOL_TRADE_TICK_VALUE);
+                double tickSize = SymbolInfoDouble(symbol, SYMBOL_TRADE_TICK_SIZE);
+                
+                if(tp > 0)
+                {
+                    double tpDistance = MathAbs(tp - openPrice);
+                    potentialWin += (tpDistance / tickSize) * pointValue * volume;
+                }
+                
+                if(sl > 0)
+                {
+                    double slDistance = MathAbs(openPrice - sl);
+                    potentialLoss += (slDistance / tickSize) * pointValue * volume;
+                }
+            }
+        }
+        
+        // Current P&L
+        color plColor = currentPL >= 0 ? profitGreen : lossRed;
+        string plSign = currentPL >= 0 ? "+" : "";
+        CreateText(prefix + "CurPL_Lbl", "Current P&L", xPos + 15, rowY, textMuted, 8, false);
+        CreateText(prefix + "CurPL_Val", plSign + FormatMoney(currentPL) + " " + currency, 
+                   xPos + 210, rowY, plColor, 8, true);
+        rowY += 27;
+        
+        // Potential Win
+        CreateText(prefix + "PotWin_Lbl", "Potential Win (TP)", xPos + 15, rowY, textMuted, 8, false);
+        CreateText(prefix + "PotWin_Val", "+" + FormatMoney(potentialWin) + " " + currency, 
+                   xPos + 210, rowY, profitGreen, 8, true);
+        rowY += 27;
+        
+        // Potential Loss
+        CreateText(prefix + "PotLoss_Lbl", "Potential Loss (SL)", xPos + 15, rowY, textMuted, 8, false);
+        CreateText(prefix + "PotLoss_Val", "-" + FormatMoney(potentialLoss) + " " + currency, 
+                   xPos + 210, rowY, lossRed, 8, true);
+        rowY += 32;
+    }
     
-    // Potential Win
-    CreateText(prefix + "PotWin_Lbl", "Potential Win (TP)", xPos + 15, rowY, textMuted, 8, false);
-    CreateText(prefix + "PotWin_Val", "+" + FormatMoney(potentialWin) + " " + currency, 
-               xPos + 210, rowY, profitGreen, 8, true);
-    rowY += 30;
+    // Market Countdown Section - COMPACT
+    string countdownStr = GetMarketCountdown();
+    bool isMarketOpen = IsForexMarketOpen();
     
-    // Potential Loss
-    CreateText(prefix + "PotLoss_Lbl", "Potential Loss (SL)", xPos + 15, rowY, textMuted, 8, false);
-    CreateText(prefix + "PotLoss_Val", "-" + FormatMoney(potentialLoss) + " " + currency, 
-               xPos + 210, rowY, lossRed, 8, true);
+    // Separator line
+    CreateRoundedRect(prefix + "PosLine", xPos + 15, rowY, DashboardWidth - 70, 1, borderColor, 0);
+    rowY += 12;
+    
+    // Countdown label and time on same area
+    string marketLabel = isMarketOpen ? "Market Closes In:" : "Market Opens In:";
+    CreateText(prefix + "CountLbl", marketLabel, xPos + 15, rowY, textMuted, 7, false);
+    rowY += 18;
+    
+    // Countdown timer - clean and simple
+    color countdownColor = isMarketOpen ? accentBlue : warningOrange;
+    CreateText(prefix + "CountVal", countdownStr, xPos + 15, rowY, countdownColor, 11, true);
+}
+
+//+------------------------------------------------------------------+
+//| Check if Forex market is open                                    |
+//+------------------------------------------------------------------+
+bool IsForexMarketOpen()
+{
+    MqlDateTime dt;
+    TimeToStruct(TimeCurrent(), dt);
+    
+    // Forex market is closed on Saturday and most of Sunday
+    if(dt.day_of_week == 6) return false; // Saturday
+    if(dt.day_of_week == 0 && dt.hour < 22) return false; // Sunday before 22:00 GMT
+    
+    // Friday after 22:00 GMT market is closed
+    if(dt.day_of_week == 5 && dt.hour >= 22) return false;
+    
+    return true;
+}
+
+//+------------------------------------------------------------------+
+//| Get market countdown timer - FIXED VERSION                       |
+//+------------------------------------------------------------------+
+string GetMarketCountdown()
+{
+    datetime currentTime = TimeCurrent();
+    MqlDateTime dt;
+    TimeToStruct(currentTime, dt);
+    
+    datetime targetTime;
+    
+    if(IsForexMarketOpen())
+    {
+        // Market is open - count down to Friday 22:00 GMT
+        MqlDateTime closeTime = dt;
+        
+        // Calculate days until Friday
+        int daysUntilFriday = (5 - dt.day_of_week + 7) % 7;
+        
+        // If today is Friday and time is past 22:00, go to next Friday
+        if(dt.day_of_week == 5 && dt.hour >= 22)
+            daysUntilFriday = 7;
+        
+        // If daysUntilFriday is 0, it means today is Friday before 22:00
+        closeTime.hour = 22;
+        closeTime.min = 0;
+        closeTime.sec = 0;
+        
+        // Add days
+        targetTime = currentTime + (daysUntilFriday * 86400);
+        TimeToStruct(targetTime, closeTime);
+        closeTime.hour = 22;
+        closeTime.min = 0;
+        closeTime.sec = 0;
+        targetTime = StructToTime(closeTime);
+    }
+    else
+    {
+        // Market is closed - count down to Sunday 22:00 GMT
+        MqlDateTime openTime = dt;
+        
+        // Calculate days until Sunday (day 0)
+        int daysUntilSunday = (7 - dt.day_of_week) % 7;
+        
+        // Special case: If today is Sunday before 22:00, countdown to today at 22:00
+        if(dt.day_of_week == 0 && dt.hour < 22)
+            daysUntilSunday = 0;
+        // If it's Sunday after 22:00 or Saturday, go to next Sunday
+        else if(dt.day_of_week == 0 && dt.hour >= 22)
+            daysUntilSunday = 7;
+        else if(dt.day_of_week == 6) // Saturday
+            daysUntilSunday = 1;
+        
+        // Calculate target time
+        targetTime = currentTime + (daysUntilSunday * 86400);
+        TimeToStruct(targetTime, openTime);
+        openTime.hour = 22;
+        openTime.min = 0;
+        openTime.sec = 0;
+        targetTime = StructToTime(openTime);
+    }
+    
+    // Calculate remaining time
+    int secondsRemaining = (int)(targetTime - currentTime);
+    if(secondsRemaining < 0) secondsRemaining = 0;
+    
+    int days = secondsRemaining / 86400;
+    int hours = (secondsRemaining % 86400) / 3600;
+    int minutes = (secondsRemaining % 3600) / 60;
+    int seconds = secondsRemaining % 60;
+    
+    // Format output - include days if more than 24 hours
+    if(days > 0)
+    {
+        return IntegerToString(days) + "d " + 
+               (hours < 10 ? "0" : "") + IntegerToString(hours) + ":" + 
+               (minutes < 10 ? "0" : "") + IntegerToString(minutes) + ":" + 
+               (seconds < 10 ? "0" : "") + IntegerToString(seconds);
+    }
+    else
+    {
+        return (hours < 10 ? "0" : "") + IntegerToString(hours) + ":" + 
+               (minutes < 10 ? "0" : "") + IntegerToString(minutes) + ":" + 
+               (seconds < 10 ? "0" : "") + IntegerToString(seconds);
+    }
 }
 
 //+------------------------------------------------------------------+
@@ -313,9 +479,10 @@ void CreatePositionSection(int yPos, int xPos)
 void CreateRiskRulesSection(int yPos, int xPos)
 {
     int sectionHeight = 365; // Matches combined height of performance + position
+    int sectionWidth = DashboardWidth - 40;
     
     // Section background
-    CreateRoundedRect(prefix + "RiskBg", xPos, yPos, DashboardWidth - 40, sectionHeight, cardBgColor, 1);
+    CreateRoundedRect(prefix + "RiskBg", xPos, yPos, sectionWidth, sectionHeight, cardBgColor, 1);
     
     // Title
     CreateText(prefix + "RiskTitle", "⚠️ FundedNext Risk Rules", xPos + 15, yPos + 15, textDark, 9, true);
@@ -326,20 +493,21 @@ void CreateRiskRulesSection(int yPos, int xPos)
     double totalRisk = GetTotalRiskPercent();
     
     int rowY = yPos + 50;
+    int barWidth = sectionWidth - 30;
     
     // Rule 1: Margin Usage
     CreateRiskRuleRow(xPos + 15, rowY, "Margin Usage", marginUsage, 
-                      RISK_RULE_MARGIN_MIN, RISK_RULE_MARGIN_MAX, RISK_RULE_MARGIN_HARD, true);
+                      RISK_RULE_MARGIN_MIN, RISK_RULE_MARGIN_MAX, RISK_RULE_MARGIN_HARD, true, barWidth);
     rowY += 80;
     
     // Rule 2: Risk Per Trade
     CreateRiskRuleRow(xPos + 15, rowY, "Risk Per Trade", riskPerTrade, 
-                      0, RISK_RULE_PER_TRADE, RISK_RULE_PER_TRADE, false);
+                      0, RISK_RULE_PER_TRADE, RISK_RULE_PER_TRADE, false, barWidth);
     rowY += 80;
     
     // Rule 3: Total Risk
     CreateRiskRuleRow(xPos + 15, rowY, "Total Risk", totalRisk, 
-                      0, RISK_RULE_TOTAL, RISK_RULE_TOTAL, false);
+                      0, RISK_RULE_TOTAL, RISK_RULE_TOTAL, false, barWidth);
     rowY += 85;
     
     // Warning message at bottom
@@ -382,7 +550,7 @@ void CreateRiskRulesSection(int yPos, int xPos)
 //+------------------------------------------------------------------+
 //| Create risk rule row with progress bar                           |
 //+------------------------------------------------------------------+
-void CreateRiskRuleRow(int x, int y, string label, double current, double targetMin, double targetMax, double hardMax, bool hasRange)
+void CreateRiskRuleRow(int x, int y, string label, double current, double targetMin, double targetMax, double hardMax, bool hasRange, int barWidth)
 {
     string rowName = prefix + "RiskRule_" + label;
     
@@ -407,7 +575,7 @@ void CreateRiskRuleRow(int x, int y, string label, double current, double target
     
     // Current value - right aligned
     string valStr = DoubleToString(current, 2) + "%";
-    CreateText(rowName + "_Val", valStr, x + 300, y, statusColor, 9, true);
+    CreateText(rowName + "_Val", valStr, x + barWidth - 35, y, statusColor, 9, true);
     
     // Target range
     string targetStr;
@@ -421,7 +589,6 @@ void CreateRiskRuleRow(int x, int y, string label, double current, double target
     
     // Progress bar
     int barY = y + 38;
-    int barWidth = 350;
     CreateProgressBar(rowName + "_Bar", x, barY, barWidth, current, hardMax, hasRange ? targetMax : targetMax * 0.7);
 }
 
