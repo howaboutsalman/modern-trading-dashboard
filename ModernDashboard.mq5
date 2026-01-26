@@ -1,9 +1,10 @@
+
 //+------------------------------------------------------------------+
 //|                                    ModernDashboard.mq5            |
 //|                                  Modern Trading Dashboard         |
 //+------------------------------------------------------------------+
 #property copyright "Modern Dashboard EA"
-#property version   "1.41"
+#property version   "1.42"
 #property strict
 
 // Dashboard settings
@@ -78,10 +79,32 @@ void CreateDashboard()
     int totalWidth = (DashboardWidth * 2) + CardSpacing;
     CreateRoundedRect(prefix + "MainBg", DashboardX, DashboardY, totalWidth, 560, bgColor, 0);
     
-    // Greeting text
+    // Greeting text - will be updated dynamically
     string accountName = AccountInfoString(ACCOUNT_NAME);
     if(accountName == "") accountName = "Trader";
-    CreateText(prefix + "Greeting", "Good morning, " + accountName + "!", DashboardX + 20, DashboardY + 20, 
+    UpdateGreeting(accountName);
+}
+
+//+------------------------------------------------------------------+
+//| Update greeting based on time of day                             |
+//+------------------------------------------------------------------+
+void UpdateGreeting(string accountName)
+{
+    MqlDateTime dt;
+    TimeToStruct(TimeLocal(), dt);
+    
+    string greeting;
+    
+    if(dt.hour >= 5 && dt.hour < 12)
+        greeting = "Good morning, " + accountName + "!";
+    else if(dt.hour >= 12 && dt.hour < 17)
+        greeting = "Good afternoon, " + accountName + "!";
+    else if(dt.hour >= 17 && dt.hour < 21)
+        greeting = "Good evening, " + accountName + "!";
+    else
+        greeting = "Good night, " + accountName + "!";
+    
+    CreateText(prefix + "Greeting", greeting, DashboardX + 20, DashboardY + 20, 
                textDark, 11, true);
 }
 
@@ -90,6 +113,11 @@ void CreateDashboard()
 //+------------------------------------------------------------------+
 void UpdateDashboard()
 {
+    // Update greeting based on time
+    string accountName = AccountInfoString(ACCOUNT_NAME);
+    if(accountName == "") accountName = "Trader";
+    UpdateGreeting(accountName);
+    
     // Update market status in header
     UpdateMarketStatus();
     
@@ -387,90 +415,59 @@ bool IsForexMarketOpen()
 }
 
 //+------------------------------------------------------------------+
-//| Get market countdown timer - FIXED VERSION                       |
+//| Get market countdown timer - DAILY SESSION VERSION                |
 //+------------------------------------------------------------------+
 string GetMarketCountdown()
 {
-    datetime currentTime = TimeCurrent();
+    datetime currentTime = TimeLocal(); // Use local time
     MqlDateTime dt;
     TimeToStruct(currentTime, dt);
     
     datetime targetTime;
     
-    if(IsForexMarketOpen())
+    // Weekend - market is closed
+    if(dt.day_of_week == 6 || (dt.day_of_week == 0 && dt.hour < 22))
     {
-        // Market is open - count down to Friday 22:00 GMT
-        MqlDateTime closeTime = dt;
-        
-        // Calculate days until Friday
-        int daysUntilFriday = (5 - dt.day_of_week + 7) % 7;
-        
-        // If today is Friday and time is past 22:00, go to next Friday
-        if(dt.day_of_week == 5 && dt.hour >= 22)
-            daysUntilFriday = 7;
-        
-        // If daysUntilFriday is 0, it means today is Friday before 22:00
-        closeTime.hour = 22;
-        closeTime.min = 0;
-        closeTime.sec = 0;
-        
-        // Add days
-        targetTime = currentTime + (daysUntilFriday * 86400);
-        TimeToStruct(targetTime, closeTime);
-        closeTime.hour = 22;
-        closeTime.min = 0;
-        closeTime.sec = 0;
-        targetTime = StructToTime(closeTime);
+        // Show "MARKET CLOSED" for weekend
+        return "WEEKEND";
+    }
+    else if(dt.day_of_week == 0 && dt.hour >= 22)
+    {
+        // Sunday after 22:00 - count to Monday 00:00
+        MqlDateTime nextDay = dt;
+        nextDay.day += 1;
+        nextDay.hour = 0;
+        nextDay.min = 0;
+        nextDay.sec = 0;
+        targetTime = StructToTime(nextDay);
+    }
+    else if(dt.day_of_week == 5 && dt.hour >= 22)
+    {
+        // Friday after 22:00 - show weekend
+        return "WEEKEND";
     }
     else
     {
-        // Market is closed - count down to Sunday 22:00 GMT
-        MqlDateTime openTime = dt;
-        
-        // Calculate days until Sunday (day 0)
-        int daysUntilSunday = (7 - dt.day_of_week) % 7;
-        
-        // Special case: If today is Sunday before 22:00, countdown to today at 22:00
-        if(dt.day_of_week == 0 && dt.hour < 22)
-            daysUntilSunday = 0;
-        // If it's Sunday after 22:00 or Saturday, go to next Sunday
-        else if(dt.day_of_week == 0 && dt.hour >= 22)
-            daysUntilSunday = 7;
-        else if(dt.day_of_week == 6) // Saturday
-            daysUntilSunday = 1;
-        
-        // Calculate target time
-        targetTime = currentTime + (daysUntilSunday * 86400);
-        TimeToStruct(targetTime, openTime);
-        openTime.hour = 22;
-        openTime.min = 0;
-        openTime.sec = 0;
-        targetTime = StructToTime(openTime);
+        // Weekday - count to end of current day (23:59:59)
+        MqlDateTime endOfDay = dt;
+        endOfDay.hour = 23;
+        endOfDay.min = 59;
+        endOfDay.sec = 59;
+        targetTime = StructToTime(endOfDay);
     }
     
     // Calculate remaining time
     int secondsRemaining = (int)(targetTime - currentTime);
     if(secondsRemaining < 0) secondsRemaining = 0;
     
-    int days = secondsRemaining / 86400;
-    int hours = (secondsRemaining % 86400) / 3600;
+    int hours = secondsRemaining / 3600;
     int minutes = (secondsRemaining % 3600) / 60;
     int seconds = secondsRemaining % 60;
     
-    // Format output - include days if more than 24 hours
-    if(days > 0)
-    {
-        return IntegerToString(days) + "d " + 
-               (hours < 10 ? "0" : "") + IntegerToString(hours) + ":" + 
-               (minutes < 10 ? "0" : "") + IntegerToString(minutes) + ":" + 
-               (seconds < 10 ? "0" : "") + IntegerToString(seconds);
-    }
-    else
-    {
-        return (hours < 10 ? "0" : "") + IntegerToString(hours) + ":" + 
-               (minutes < 10 ? "0" : "") + IntegerToString(minutes) + ":" + 
-               (seconds < 10 ? "0" : "") + IntegerToString(seconds);
-    }
+    // Format output
+    return (hours < 10 ? "0" : "") + IntegerToString(hours) + ":" + 
+           (minutes < 10 ? "0" : "") + IntegerToString(minutes) + ":" + 
+           (seconds < 10 ? "0" : "") + IntegerToString(seconds);
 }
 
 //+------------------------------------------------------------------+
