@@ -3,6 +3,7 @@
 ![Version](https://img.shields.io/badge/version-1.43-blue.svg)
 
 A professional trading dashboard for MetaTrader 5 designed for **FundedNext** prop traders. Monitor your performance, risk compliance, and market status in real-time.
+
 ![Platform](https://github.com/howaboutsalman/modern-trading-dashboard/blob/main/image.png?raw=true)
 
 ---
