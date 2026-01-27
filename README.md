@@ -1,7 +1,7 @@
 # 📊 Modern Trading Dashboard for MT5
 
 ![Version](https://img.shields.io/badge/version-1.43-blue.svg)
-![Platform](https://img.shields.io/badge/platform-MetaTrader%205-orange.svg)
+![Platform](https://github.com/howaboutsalman/modern-trading-dashboard/blob/main/image.png?raw=true)
 
 A professional trading dashboard for MetaTrader 5 designed for **FundedNext** prop traders. Monitor your performance, risk compliance, and market status in real-time.
 
