@@ -1,128 +1,130 @@
-# Modern Trading Dashboard
+# 📊 Modern Trading Dashboard for MT5
 
-A sophisticated MQL5 Expert Advisor that displays a modern, real-time trading dashboard directly on your MetaTrader 5 chart.
+![Version](https://img.shields.io/badge/version-1.43-blue.svg)
+![Platform](https://img.shields.io/badge/platform-MetaTrader%205-orange.svg)
 
-## Features
-
-### 📊 Real-time Account Overview
-- **Account Balance**: Current account balance display
-- **Open Positions**: Live count of active trades
-- **Current Equity**: Real-time equity calculation
-- **Today's P&L**: Daily profit/loss with color coding
-
-### 📈 Performance Analytics
-- **Daily Performance**: Today's trading results
-- **Weekly Summary**: Current week performance
-- **Monthly Overview**: Current month trading statistics
-- **Percentage Badges**: Visual indicators with color coding
-
-### 💼 Position Analysis
-- **Current P&L**: Real-time profit/loss from open positions
-- **Potential Win**: Calculated profit if all take profits are hit
-- **Potential Loss**: Calculated loss if all stop losses are triggered
-- **Smart Calculations**: Accounts for swaps, commissions, and position sizes
-
-## Installation
-
-1. Copy `ModernDashboard.mq5` to your MetaTrader 5 `MQL5/Experts` folder
-2. Restart MetaTrader 5 or refresh the Expert Advisors list
-3. Drag the dashboard onto any chart
-4. Adjust input parameters as needed
-
-## Configuration
-
-### Input Parameters
-
-- **DashboardX**: Horizontal position (default: 30)
-- **DashboardY**: Vertical position (default: 30)  
-- **DashboardWidth**: Width of the dashboard (default: 420)
-- **CardSpacing**: Spacing between cards (default: 15)
-
-### Customization
-
-The dashboard uses a modern color scheme that can be easily modified in the source code:
-
-- **Background**: Clean white with subtle card backgrounds
-- **Text**: Dark primary text with muted secondary text
-- **Indicators**: Green for profits, red for losses
-- **Badges**: Color-coded performance indicators
-
-## Technical Details
-
-### Update Frequency
-- **Timer**: Updates every 200ms for smooth real-time display
-- **Event-driven**: Also updates on each tick for maximum responsiveness
-
-### Performance Considerations
-- **Efficient Rendering**: Objects are reused rather than recreated
-- **Memory Management**: Proper cleanup on deinitialization
-- **Optimized Calculations**: Minimal resource usage
-
-### Compatibility
-- **Platform**: MetaTrader 5 (MT5)
-- **Account Types**: Works with any MT5 account type
-- **Timeframes**: Compatible with all chart timeframes
-
-## Dashboard Sections
-
-### 1. Header Section
-- Personalized greeting with account name
-- Clean, modern design
-
-### 2. Statistics Cards
-Four key metrics displayed as cards:
-- 💰 Account Balance
-- 📊 Open Positions  
-- 💵 Current Equity
-- 📈/📉 Today's P&L
-
-### 3. Performance Overview
-Time-based performance tracking:
-- Today's results
-- This week's summary
-- Current month statistics
-- Percentage change indicators
-
-### 4. Position Analysis
-Detailed open position breakdown:
-- Current unrealized P&L
-- Potential profit at take profit levels
-- Potential loss at stop loss levels
-
-## Security & Best Practices
-
-- **No Trading Functions**: Dashboard only - doesn't place trades
-- **Read-only Access**: Only reads account and position data
-- **Safe Object Management**: Proper cleanup prevents memory leaks
-- **No External Dependencies**: Self-contained implementation
-
-## Troubleshooting
-
-### Dashboard Not Visible
-- Check that Expert Advisors are enabled in MT5
-- Verify auto-trading is activated
-- Ensure the dashboard is attached to the correct chart
-
-### Data Not Updating
-- Confirm you have an active internet connection
-- Check that MT5 is connected to your broker
-- Verify account has trading history enabled
-
-### Performance Issues
-- The dashboard is optimized for minimal resource usage
-- If experiencing lag, try increasing the timer interval in the code
-
-## Version History
-
-### v1.00
-- Initial release with core dashboard functionality
-- Real-time account and position monitoring
-- Modern UI design with responsive layout
-
-## Support
-
-For issues or feature requests, please check the code comments for detailed implementation notes.
+A professional trading dashboard for MetaTrader 5 designed for **FundedNext** prop traders. Monitor your performance, risk compliance, and market status in real-time.
 
 ---
 
-**Disclaimer**: This dashboard is for informational purposes only. Past performance does not guarantee future results. Always trade responsibly.
+## ✨ Key Features
+
+- **Real-Time Monitoring** - Balance, equity, open positions, and daily P&L
+- **Performance Tracking** - Today, This Week, This Month with percentage returns
+- **Position Analysis** - Current P&L, potential wins/losses based on TP/SL
+- **FundedNext Risk Rules** - Automatic compliance monitoring:
+  - Margin Usage (Target: 20-30%, Max: 70%)
+  - Risk Per Trade (Max: 1.0%)
+  - Total Portfolio Risk (Max: 3.0%)
+- **Market Status** - Live open/closed indicator with countdown timer
+
+---
+
+## 🚀 Quick Start
+
+1. **Install**
+   - Copy `ModernDashboard_Fixed.mq5` to `MT5/MQL5/Experts/`
+   - Restart MetaTrader 5
+
+2. **Activate**
+   - Drag EA onto any chart
+   - Enable "AutoTrading" button
+   - Dashboard appears instantly
+
+3. **Configure** (Optional)
+   ```mql5
+   DashboardX = 30;      // Position from left
+   DashboardY = 30;      // Position from top
+   DashboardWidth = 420; // Column width
+   ```
+
+---
+
+## 📋 Dashboard Layout
+
+```
+┌──────────────────────────────────────────────────────┐
+│  Good afternoon, Trader!        ● MARKET OPEN        │
+├─────────────────┬─────────────────┬─────────────────┤
+│ 💰 Balance      │ 📊 Positions    │ 💵 Equity       │
+│ 200000.00       │ 0               │ 200000.00       │
+├─────────────────┴─────────────────┼─────────────────┤
+│ Performance Overview              │ ⚠️ Risk Rules   │
+│ • Today:    +0.00 USD  +0.0%     │ Margin: 0.00%   │
+│ • Week:     +0.00 USD  +0.0%     │ [▓░░░░░░░░░]    │
+│ • Jan:      +0.00 USD  +0.0%     │ Risk/Trade: 0%  │
+├───────────────────────────────────┤ [░░░░░░░░░░]    │
+│ Open Positions Analysis           │ Total Risk: 0%  │
+│ • No open positions               │ [░░░░░░░░░░]    │
+│ • Market Closes In: 10:16:08      │ ✅ All OK       │
+└───────────────────────────────────┴─────────────────┘
+```
+
+---
+
+## 🔧 How It Works
+
+**Performance Calculation**
+- ✅ Includes: Trading profits, swap, commission
+- ❌ Excludes: Deposits, withdrawals, balance adjustments
+
+**Risk Calculation**
+- **Margin Usage**: `(Used Margin / Equity) × 100`
+- **Risk Per Trade**: `(SL Distance × Lot Size × Point Value / Equity) × 100`
+- **Total Risk**: Sum of all position risks
+
+---
+
+## 💡 Quick Tips
+
+1. Keep margin between 20-30% for optimal risk
+2. Always set stop losses for accurate risk calculations
+3. Red alerts = close positions immediately
+4. Dashboard is view-only, never places trades
+
+---
+
+## 🛠️ Troubleshooting
+
+**Dashboard not showing?**
+- Enable AutoTrading button
+- Check EA is attached (smile icon in corner)
+
+**Wrong P&L values?**
+- Ensure you have trading history
+- Restart MT5 to refresh
+
+**Risk shows 0%?**
+- Open positions must have stop-loss orders
+
+---
+
+## ⚠️ Important Notes
+
+- **Non-trading EA** - Display only, never modifies positions
+- **Compatible with** - FundedNext accounts, standard MT5, demo accounts
+- **Updates every second** - Real-time monitoring
+- **Zero chart clutter** - Clean overlay design
+
+---
+
+## 📜 License
+
+MIT License - Free to use and modify
+
+---
+
+## 🚀 Getting Started Checklist
+
+- [ ] Copy MQ5 file to Experts folder
+- [ ] Restart MT5
+- [ ] Attach EA to chart
+- [ ] Enable AutoTrading
+- [ ] Verify dashboard visible
+- [ ] Start trading with confidence! 🎯
+
+---
+
+**Version 1.43** | Designed for FundedNext Traders | Trading involves risk
+
+For support or feature requests, contact through MT5 community channels.
