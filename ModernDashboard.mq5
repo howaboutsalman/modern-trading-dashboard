@@ -1,10 +1,9 @@
-
 //+------------------------------------------------------------------+
 //|                                    ModernDashboard.mq5            |
 //|                                  Modern Trading Dashboard         |
 //+------------------------------------------------------------------+
 #property copyright "Modern Dashboard EA"
-#property version   "1.42"
+#property version   "1.43"
 #property strict
 
 // Dashboard settings
@@ -806,7 +805,7 @@ datetime GetStartOfMonth()
 }
 
 //+------------------------------------------------------------------+
-//| Get profit between dates                                         |
+//| Get profit between dates - FIXED VERSION                         |
 //+------------------------------------------------------------------+
 double GetProfitBetween(datetime from, datetime to)
 {
@@ -819,9 +818,32 @@ double GetProfitBetween(datetime from, datetime to)
         ulong ticket = HistoryDealGetTicket(i);
         if(ticket > 0)
         {
-            total += HistoryDealGetDouble(ticket, DEAL_PROFIT);
-            total += HistoryDealGetDouble(ticket, DEAL_SWAP);
-            total += HistoryDealGetDouble(ticket, DEAL_COMMISSION);
+            // Get deal type and entry type
+            ENUM_DEAL_TYPE dealType = (ENUM_DEAL_TYPE)HistoryDealGetInteger(ticket, DEAL_TYPE);
+            ENUM_DEAL_ENTRY dealEntry = (ENUM_DEAL_ENTRY)HistoryDealGetInteger(ticket, DEAL_ENTRY);
+            
+            // Skip balance operations (deposits, withdrawals, credit)
+            if(dealType == DEAL_TYPE_BALANCE)
+            {
+                continue; // Skip deposits/withdrawals
+            }
+            
+            // Skip if it's not an actual trade entry/exit
+            // Only count IN (opening) and OUT (closing) trades
+            if(dealEntry != DEAL_ENTRY_IN && 
+               dealEntry != DEAL_ENTRY_OUT && 
+               dealEntry != DEAL_ENTRY_INOUT)
+            {
+                continue;
+            }
+            
+            // Only count actual trading profits (BUY and SELL deals)
+            if(dealType == DEAL_TYPE_BUY || dealType == DEAL_TYPE_SELL)
+            {
+                total += HistoryDealGetDouble(ticket, DEAL_PROFIT);
+                total += HistoryDealGetDouble(ticket, DEAL_SWAP);
+                total += HistoryDealGetDouble(ticket, DEAL_COMMISSION);
+            }
         }
     }
     
