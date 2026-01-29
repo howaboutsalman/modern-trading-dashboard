@@ -442,20 +442,20 @@ void CreateStatCards(int &yPos)
 
    int xPos = xStart;
    // Wingdings "ô" = Dollar/Money bag icon for Account Balance
-   CreateStatCard(xPos, yPos, cardWidth, "ô", FormatMoney(balance), "Account Balance", textDark);
+   CreateStatCard(xPos, yPos, cardWidth, "💰", FormatMoney(balance), "Account Balance", textDark);
    xPos += cardWidth + 10;
    // Wingdings "g" = List/Menu icon for Open Positions
-   CreateStatCard(xPos, yPos, cardWidth, "g", IntegerToString(openPositions), "Open Positions", textDark);
+   CreateStatCard(xPos, yPos, cardWidth, "📊", IntegerToString(openPositions), "Open Positions", textDark);
 
    xPos = xStart + DashboardWidth + CardSpacing - 40;
    // Wingdings "[" = Balance/Scale icon for Current Equity
-   CreateStatCard(xPos, yPos, cardWidth, "[", FormatMoney(equity), "Current Equity", textDark);
+   CreateStatCard(xPos, yPos, cardWidth, "💵", FormatMoney(equity), "Current Equity", textDark);
    xPos += cardWidth + 10;
 
    color plColor = todayProfit >= 0 ? profitGreen : lossRed;
    string plSign = todayProfit >= 0 ? "+" : "";
    // Wingdings: "é" (up arrow) for profit, "ê" (down arrow) for loss
-   string plIcon = todayProfit >= 0 ? "é" : "ê";
+   string plIcon = todayProfit >= 0 ? "📈" : "📉";
    CreateStatCard(xPos, yPos, cardWidth, plIcon, plSign + FormatMoney(todayProfit), "Today's P/L", plColor);
 }
 
