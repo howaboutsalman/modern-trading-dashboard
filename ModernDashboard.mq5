@@ -1,9 +1,9 @@
 //------------------------------------------------------------------
 // ModernDashboard.mq5  
-// Using OrderCalcProfit Method (Working Logic) - Fixed Icons
+// Version 7.13 - Fixed Icons (Reliable & Clean)
 //------------------------------------------------------------------
 #property copyright "Modern Dashboard EA - OrderCalcProfit Method"
-#property version   "7.11"
+#property version   "7.13"
 #property strict
 
 #include <Trade\Trade.mqh>
@@ -72,7 +72,7 @@ int OnInit()
    ArrayResize(trackedPositions, 0);
 
    Print("╔══════════════════════════════════════════════════════════╗");
-   Print("║   MODERN DASHBOARD - OrderCalcProfit Method v7.11       ║");
+   Print("║   MODERN DASHBOARD - Fixed Icons v7.13                  ║");
    Print("╚══════════════════════════════════════════════════════════╝");
    Print("Using OrderCalcProfit for accurate SL calculation");
    Print("");
@@ -213,7 +213,6 @@ void CheckAndSetAutoStopLoss()
 //------------------------------------------------------------------
 double CalculateAutoStopLoss(string symbol, ENUM_POSITION_TYPE posType, double openPrice, double lotSize)
 {
-   // 1. Validate inputs
    if(lotSize <= 0)
    {
       Print("❌ Error: Lot size must be greater than 0");
@@ -229,13 +228,8 @@ double CalculateAutoStopLoss(string symbol, ENUM_POSITION_TYPE posType, double o
       return 0;
    }
 
-   // 2. Calculate the exact cash amount to risk
    double riskMoney = InitialAccountBalance * (AutoSLRiskPercent / 100.0);
-
-   // 3. Determine SL Direction
    double slDirection = (posType == POSITION_TYPE_BUY) ? -1.0 : 1.0;
-
-   // 4. Use OrderCalcProfit with a test distance (100 points)
    double testDistance = 100 * point;
    double testPrice = openPrice + (slDirection * testDistance);
    double testProfit = 0;
@@ -256,15 +250,12 @@ double CalculateAutoStopLoss(string symbol, ENUM_POSITION_TYPE posType, double o
 
    PrintFormat("Test: 100 points = $%.2f loss", MathAbs(testProfit));
 
-   // 5. Calculate loss per point
    double lossPerPoint = MathAbs(testProfit) / testDistance;
    PrintFormat("Loss Per Point: $%.5f", lossPerPoint);
 
-   // 6. Calculate required distance for desired risk
    double finalDistPoints = riskMoney / lossPerPoint;
    PrintFormat("Required Distance: %.0f points (%.5f price units)", finalDistPoints / point, finalDistPoints);
 
-   // 7. Calculate Stop Loss Price Level
    double targetSL = openPrice + (slDirection * finalDistPoints);
 
    if(posType == POSITION_TYPE_BUY)
@@ -274,7 +265,6 @@ double CalculateAutoStopLoss(string symbol, ENUM_POSITION_TYPE posType, double o
 
    targetSL = NormalizeDouble(targetSL, digits);
 
-   // 8. Validate minimum stop level
    double minStopLevel = (double)SymbolInfoInteger(symbol, SYMBOL_TRADE_STOPS_LEVEL) * point;
    double currentPrice = (posType == POSITION_TYPE_BUY) ? 
                          SymbolInfoDouble(symbol, SYMBOL_BID) : 
@@ -348,7 +338,7 @@ void RemovePositionFromTracker(int index)
 }
 
 //------------------------------------------------------------------
-// DASHBOARD FUNCTIONS (using OrderCalcProfit for risk calc)
+// DASHBOARD FUNCTIONS
 //------------------------------------------------------------------
 
 void CreateDashboard()
@@ -451,14 +441,14 @@ void CreateStatCards(int &yPos)
    double todayProfit = GetProfitBetween(startOfDay, TimeCurrent());
 
    int xPos = xStart;
-   // Wingdings: "N" = Folder/Briefcase icon for Account Balance
-   CreateStatCard(xPos, yPos, cardWidth, "N", FormatMoney(balance), "Account Balance", textDark);
+   // Wingdings "ô" = Dollar/Money bag icon for Account Balance
+   CreateStatCard(xPos, yPos, cardWidth, "ô", FormatMoney(balance), "Account Balance", textDark);
    xPos += cardWidth + 10;
-   // Wingdings: "=" = Bar chart icon for Open Positions
-   CreateStatCard(xPos, yPos, cardWidth, "=", IntegerToString(openPositions), "Open Positions", textDark);
+   // Wingdings "g" = List/Menu icon for Open Positions
+   CreateStatCard(xPos, yPos, cardWidth, "g", IntegerToString(openPositions), "Open Positions", textDark);
 
    xPos = xStart + DashboardWidth + CardSpacing - 40;
-   // Wingdings: "[" = Scale/Balance icon for Current Equity
+   // Wingdings "[" = Balance/Scale icon for Current Equity
    CreateStatCard(xPos, yPos, cardWidth, "[", FormatMoney(equity), "Current Equity", textDark);
    xPos += cardWidth + 10;
 
@@ -473,7 +463,8 @@ void CreateStatCard(int x, int y, int width, string icon, string value, string l
 {
    string cardName = prefix + "Card_" + label;
    CreateRoundedRect(cardName + "_Bg", x, y, width, 85, cardBgColor, 1);
-   CreateTextWithFont(cardName + "_Icon", icon, x + 12, y + 12, textDark, 18, false, "Wingdings");
+   // Fixed icon size to 16 and proper spacing
+   CreateTextWithFont(cardName + "_Icon", icon, x + 12, y + 14, textDark, 16, false, "Wingdings");
    CreateText(cardName + "_Val", value, x + 12, y + 40, valueColor, 10, true);
    CreateText(cardName + "_Lbl", label, x + 12, y + 65, textMuted, 7, false);
 }
@@ -554,7 +545,6 @@ void CreatePositionSection(int &yPos, int xPos)
 
          currentPL += profit;
 
-         // Use OrderCalcProfit for accurate calculations
          ENUM_ORDER_TYPE orderType = (posType == POSITION_TYPE_BUY) ? ORDER_TYPE_BUY : ORDER_TYPE_SELL;
 
          if(tp > 0)
@@ -769,7 +759,6 @@ double GetRiskPerTradePercent()
 
       if(sl == 0) continue;
 
-      // Use OrderCalcProfit for accurate calculation
       ENUM_ORDER_TYPE orderType = (posType == POSITION_TYPE_BUY) ? ORDER_TYPE_BUY : ORDER_TYPE_SELL;
       double slLoss = 0;
 
@@ -805,7 +794,6 @@ double GetTotalRiskPercent()
 
       if(sl == 0) continue;
 
-      // Use OrderCalcProfit for accurate calculation
       ENUM_ORDER_TYPE orderType = (posType == POSITION_TYPE_BUY) ? ORDER_TYPE_BUY : ORDER_TYPE_SELL;
       double slLoss = 0;
 
